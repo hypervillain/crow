@@ -6,8 +6,7 @@ It's provided _as-is_ and for various reasons is not meant to work out of the bo
 ### -- sentence --
 The Dangerously Set Inner Bernoulli Gate takes two (mostly alternating) gate signals, evaluates them over each other and across time, to generate presumably interesting (and somewhat predictable) patterns.
 
-Imagine four logical outputs asking questions to an [MI Branches](https://mutable-instruments.net/modules/branches), everytime it produces a gate. 
-Is output A being triggered, or B? Is it the 2nd time it plays? Is output 3 about to play? Is it the sequence's 7th step?
+Imagine four logical outputs asking questions to an [MI Branches](https://mutable-instruments.net/modules/branches), every time it produces an A or B gate signal. Is output A being triggered, or B? Is it the 2nd time it plays? Is output 3 about to play? Did it play already?
 
 ### -- grammar --
 in order to generate these four sequences, each logical output is assigned a table of conditions that define whether or not an incoming gate signal should be forwarded to its corresponding physical output or not.
@@ -63,7 +62,7 @@ _OR cuts across it_. If any of the tests returns _true_, returns _true_.
 _OR gets across it_. If each of the tests returns _true_, returns _true_.
 
 -- `MOST`--
-_OR navigates through it_. If most of the tests returns _true_, returns _true_.
+_MOST navigates through it_. If most of the tests returns _true_, returns _true_.
 
 Defaults to OR.
 

@@ -75,8 +75,8 @@ end
 -- TODO
   -- inContiguousRange(max)
   -- inSequenceRange(max)
-  -- maybe rand()
-  -- and rand1()
+  -- maybe ifRand()
+  -- and ifRand1()
 
 -- -- -- -- -- -- -- -- -
 -- End of test methods --

@@ -69,7 +69,7 @@ Defaults to OR.
 
 ### -- todo --
 
-- Add methods `inContiguousRange`, `inSequenceRange`, `rand`, `rand1`
+- Add methods `inContiguousRange`, `inSequenceRange`, `ifRand`, `ifRand1`
 - Add a `required` property to test methods. it should set a logical output to false if condition is unmet
 - Make the whole script actually work with Crow..
 - Provide examples of interesting logical outputs

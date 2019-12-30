@@ -73,8 +73,8 @@ function ifNotStep(...)
 end
 
 -- TODO
-  -- inContiguousRange(max)
-  -- inSequenceRange(max)
+  -- ifInRange(oIndex, max)
+  -- ifInSeqRange(oIndex, max)
   -- maybe ifRand()
   -- and ifRand1()
 
@@ -118,26 +118,31 @@ function evaluateLogicalOutputs(conjunction, i)
   return outputBools
 end
 
+-- on input change, sets current step in sequence
+-- resets step and outputs count if sequence just rotated
+function handleStep()
+  if (events.steps == SIGNATURE) then
+    events.steps = 1
+    events.outputValue = map(function() return 0 end, events.outputValue)
+    return
+  end
+  events.steps = events.steps + 1
+end
+
 -- returns a change method scoped by input index
 function attachInputChange(i)
   function change(_)
-    if (events.steps == SIGNATURE) then
-      events.steps = 1
-      events.outputValue = map(function() return 0 end, events.outputValue)
-    else events.steps = events.steps + 1
-    end
+    handleStep()
     local bools = evaluateLogicalOutputs(CONJUNCTION, i)
     for o = 1, 4 do
       if (bools[o] == true) then
         outputs[o].action(o) -- mock purposes, delete this
         events.outputValue[i] = events.outputValue[i] + 1
-        events.prevInputValue[i] = true
-      else events.prevInputValue[i] = false
       end
     end
     events.prevInputValue[i] = true
     local rev
-    if i == 2 then rev = 1 else i = 2 end
+    if i == 2 then rev = 1 else i = 2 end -- ...
     events.prevInputValue[rev] = false
   end
   return change
@@ -154,7 +159,7 @@ function init()
     inputs[i].change = attachInputChange(i)
   end
   for i = 1, 4 do
-    outputs[i].action = pulse(PULSE_TRIG, PULSE_VOLTS, true)
+    outputs[i].action = pulse(PULSE_TRIG, PULSE_VOLTS, 1)
   end
 end
 

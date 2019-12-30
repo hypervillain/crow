@@ -1,3 +1,5 @@
+local inspect = require('inspect')
+
 OR = "or"
 AND = "and"
 MOST = "most"
@@ -9,13 +11,13 @@ SIGNATURE = 8
 
 events = {
   steps = 0,
-  outputValue = { 0, 0, 0, 0 },
-  prevInputValue = { false, false },
-  prevOutputValue = { false, false, false, false }
+  inputRepeats = { 0, 0 }, -- unused
+  outputRepeats = { 0, 0, 0, 0 },
+  prevInputValue = { true, true },
+  prevOutputValue = { true, true, true, true }
 } -- this could be heavily optimized,
 -- but let's see if it works first!
 
--- helper
 function map(func, array)
   local arr = {}
   for i,v in ipairs(array) do
@@ -24,9 +26,40 @@ function map(func, array)
   return arr
 end
 
--- -- -- -- -- -- -- -- -- -- -
--- Beginning of test methods --
--- -- -- -- -- -- -- -- -- -- -
+-- -- -- -- -- -- -- -- -- -
+-- Questions / conditions --
+-- -- -- -- -- -- -- -- -- -
+-- TODO
+  -- maybe ifRand()
+  -- and ifRand1()
+  -- sum of positive logical outputs
+
+function generator(elem, index, maybeF)
+  if (maybeF) then
+    return maybeF(events[elem][index])
+  end
+  return events[elem][index]
+end
+
+function ifPrevOutput(o)
+  return function() return generator("prevOutputValue", o) end
+end
+function ifNotPrevOutput(o)
+  return function() return not generator("prevOutputValue", o) end
+end
+
+function ifPrevInput(i)
+  return function() return generator("prevInputValue", i) end
+end
+
+function ifNotPrevInput(i)
+  return function() return not generator("prevInputValue", i) end
+end
+
+function ifMaxRepeat(o, max)
+  return function() return generator("outputRepeats", o, function(e) return e < max end) end
+end
+
 function ifInput(i)
   function _ifInput(_i)
     return i == _i
@@ -35,17 +68,9 @@ function ifInput(i)
 end
 function ifNotInput(i) return function(args) return not ifInput(i)(args) end end
 
-function ifPrevInput(i)
-  function _ifPrevInput()
-    return events.prevInputs[i] == true
-  end
-  return _ifPrevInput
-end
-function ifNotPrevInput(i) return function(args) return not ifPrevInput(i)(args) end end
-
 function ifOutput(oIndex)
-  function _ifOutput(_, _, outputBools)
-    return outputBools[oIndex] == true
+  function _ifOutput(_, _, bools)
+    return bools[oIndex] == true
   end
   return _ifOutput
 end
@@ -71,18 +96,17 @@ function ifNotStep(...)
     return not ifStep(table.unpack(args))
   end
 end
+-- -- -- -- -- -- -- -- -- -
+-- End of questions -- -- --
+-- -- -- -- -- -- -- - -- --
 
--- TODO
-  -- ifInRange(oIndex, max)
-  -- ifInSeqRange(oIndex, max)
-  -- maybe ifRand()
-  -- and ifRand1()
-
--- -- -- -- -- -- -- -- -
--- End of test methods --
--- -- -- -- -- -- -- -- -
-
--- evaluates a table of booleans based on selected conjunction
+-- -- -- -- -- -- -- -- -- -- -- -- -- -
+-- Evaluate a table of booleans -- -- --
+-- based on user selected conjunction --
+-- -- -- -- -- -- -- -- -- -- -- -- -- -
+-- Todo
+  -- by output conjunction
+  -- define prop-types-like conditions: method().required
 function eval(conjunction, ...)
   local count = 0
   local args = { ... }
@@ -100,7 +124,10 @@ function eval(conjunction, ...)
   return conjunction == MOST and count >= #args / 2 or count > 0
 end
 
--- For each logical output, scan and run its test conditions
+-- -- -- -- -- -- -- -- -- -- -- --
+-- For each logical output, scan --
+-- and run its set of conditions --
+-- -- -- -- -- -- -- -- -- -- -- --
 function evaluateLogicalOutputs(conjunction, i)
   local outputBools = {}
   for o = 1, 4 do
@@ -118,56 +145,86 @@ function evaluateLogicalOutputs(conjunction, i)
   return outputBools
 end
 
--- on input change, sets current step in sequence
--- resets step and outputs count if sequence just rotated
+-- -- -- -- -- -- -- -- -- -- -- -- --
+-- After change, update events table -
+-- -- -- -- -- -- -- -- -- -- -- -- --
+function updateEvents(i, bools)
+  events.prevInputValue[i] = true
+  events.prevInputValue[3 - i] = false
+  for o = 1, 4 do
+    if (bools[o] == true) then
+      events.outputRepeats[o] = events.outputRepeats[o] + 1
+    else events.outputRepeats[o] = 0
+    end
+    events.prevOutputValue[o] = bools[o]
+  end
+end
+
+-- -- -- -- -- -- -- -- -- -- -- -- --
+-- Move the sequence forward until signature --
+-- Then, reset --
+-- -- -- -- -- -- -- -- -- -- -- -- --
 function handleStep()
   if (events.steps == SIGNATURE) then
     events.steps = 1
-    events.outputValue = map(function() return 0 end, events.outputValue)
+    events.outputRepeats = map(function() return 0 end, events.outputRepeats)
     return
   end
   events.steps = events.steps + 1
 end
 
--- returns a change method scoped by input index
+-- -- -- --   -- change -  --
+-- change -       -- change -
+-- -- -- --    -- change - --
+-- -- change -- -- -- -- -- -
 function attachInputChange(i)
   function change(_)
-    handleStep()
+    handleStep() -- sequence rotation
     local bools = evaluateLogicalOutputs(CONJUNCTION, i)
     for o = 1, 4 do
       if (bools[o] == true) then
-        outputs[o].action(o) -- mock purposes, delete this
-        events.outputValue[i] = events.outputValue[i] + 1
+        outputs[o]() -- mock
+        -- you might need to update events here
+        -- depending on data Questions need to operate
+      end
+      events.prevOutputValue[o] = bool
+    end
+    updateEvents(i, bools)
+
+    -- mock result
+    local s = ""
+    for o = 1, 4 do
+      if (bools[o] == true) then
+        s = s..o
       end
     end
-    events.prevInputValue[i] = true
-    local rev
-    if i == 2 then rev = 1 else rev = 2 end -- ...
-    events.prevInputValue[rev] = false
+    print(s)
+    --
+
   end
   return change
 end
 
--- mocks -- delete all of this
-function pulse() return function(o) print(o) end end
+-- mocks
+function pulse() return function(o) end end
 inputs = { {}, {}}
 outputs = { {}, {}, {}, {}}
--- end of mocks
 
 function init()
   for i = 1, 2 do
     inputs[i].change = attachInputChange(i)
   end
   for i = 1, 4 do
-    outputs[i].action = pulse(PULSE_TRIG, PULSE_VOLTS, 1)
+    outputs[i] = pulse(PULSE_TRIG, PULSE_VOLTS, 1)
   end
 end
 
 logicalOutputs = {
   { ifInput(1) },
-  { ifInput(2) },
-  { ifNotInput(1) },
-  { ifNotInput(2) }
+  {  ifNotInput(1), ifNotOutput(4) },
+  {  ifMaxRepeat(1, 3) },
+  { ifMaxRepeat(4, 3) }
 } -- change this :)
 
-init() -- delete this
+
+init()

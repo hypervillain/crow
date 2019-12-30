@@ -142,7 +142,7 @@ function attachInputChange(i)
     end
     events.prevInputValue[i] = true
     local rev
-    if i == 2 then rev = 1 else i = 2 end -- ...
+    if i == 2 then rev = 1 else rev = 2 end -- ...
     events.prevInputValue[rev] = false
   end
   return change

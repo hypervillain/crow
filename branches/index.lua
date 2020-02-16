@@ -1,11 +1,9 @@
-local inspect = require('inspect')
-
 OR = "or"
 AND = "and"
 MOST = "most"
 CONJUNCTION = OR -- see README
 PULSE_TRIG = 0.16 -- change this
-PULSE_VOLTS = 5 -- change this
+PULSE_VOLTS = 8 -- change this
 
 SIGNATURE = 8
 
@@ -30,11 +28,11 @@ end
 -- Questions / conditions --
 -- -- -- -- -- -- -- -- -- -
 -- TODO
-  -- maybe ifRand()
+  -- ifRand()
   -- and ifRand1()
   -- sum of positive logical outputs
 
-function generator(elem, index, maybeF)
+function events:get(elem, index, maybeF)
   if (maybeF) then
     return maybeF(events[elem][index])
   end
@@ -42,22 +40,22 @@ function generator(elem, index, maybeF)
 end
 
 function ifPrevOutput(o)
-  return function() return generator("prevOutputValue", o) end
+  return function() return events:get("prevOutputValue", o) end
 end
 function ifNotPrevOutput(o)
-  return function() return not generator("prevOutputValue", o) end
+  return function() return not events:get("prevOutputValue", o) end
 end
 
 function ifPrevInput(i)
-  return function() return generator("prevInputValue", i) end
+  return function() return events:get("prevInputValue", i) end
 end
 
 function ifNotPrevInput(i)
-  return function() return not generator("prevInputValue", i) end
+  return function() return not events:get("prevInputValue", i) end
 end
 
 function ifMaxRepeat(o, max)
-  return function() return generator("outputRepeats", o, function(e) return e < max end) end
+  return function() return events:get("outputRepeats", o, function(e) return e < max end) end
 end
 
 function ifInput(i)
@@ -66,23 +64,36 @@ function ifInput(i)
   end
   return _ifInput
 end
-function ifNotInput(i) return function(args) return not ifInput(i)(args) end end
+function ifNotInput(i) return function(...)
+  local args = { ... }
+    return not ifInput(i)(args)
+  end
+end
 
 function ifOutput(oIndex)
-  function _ifOutput(_, _, bools)
+  function _ifOutput(bools)
     return bools[oIndex] == true
   end
   return _ifOutput
 end
-function ifNotOutput(oIndex) return function(args) return not ifOutput(oIndex)(args) end end
+
+function ifNotOutput(oIndex)
+  return function(...) 
+    local args = { ... }
+    return not ifOutput(oIndex)(args)
+  end
+end
 
 function ifStep(...)
   local args = { ... }
   return function()
     local bool = false
-    for _, v in ipairs(args) do
+    print(table.unpack(args))
+    for a, v in ipairs(args) do
+      print(a)
+      print('--')
       -- assumes steps count has just been incremented
-      if ((v % SIGNATURE) == events.steps) then
+      if (v == events.steps) then
         bool = true
         break
       end
@@ -93,7 +104,7 @@ end
 function ifNotStep(...)
   local args = { ... }
   return function()
-    return not ifStep(table.unpack(args))
+    return not ifStep(table.unpack(args))()
   end
 end
 -- -- -- -- -- -- -- -- -- -
@@ -136,7 +147,9 @@ function evaluateLogicalOutputs(conjunction, i)
       i,
       table.unpack(
         map(
-          function (f) return f(i, o, outputBools) end,
+          function (f)
+            return f(i, o, outputBools)
+          end,
           logicalOutputs[o]
         )
       )
@@ -183,48 +196,39 @@ function attachInputChange(i)
     local bools = evaluateLogicalOutputs(CONJUNCTION, i)
     for o = 1, 4 do
       if (bools[o] == true) then
-        outputs[o]() -- mock
-        -- you might need to update events here
-        -- depending on data Questions need to operate
+       output[o]()
       end
       events.prevOutputValue[o] = bool
     end
     updateEvents(i, bools)
 
-    -- mock result
-    local s = ""
-    for o = 1, 4 do
-      if (bools[o] == true) then
-        s = s..o
-      end
-    end
-    print(s)
-    --
-
   end
   return change
 end
 
--- mocks
-function pulse() return function(o) end end
-inputs = { {}, {}}
-outputs = { {}, {}, {}, {}}
-
 function init()
   for i = 1, 2 do
-    inputs[i].change = attachInputChange(i)
+    input[i].mode('change', 1.0, 0.1, 'rising')
+    input[i].change = attachInputChange(i)
   end
   for i = 1, 4 do
-    outputs[i] = pulse(PULSE_TRIG, PULSE_VOLTS, 1)
+    output[i].action = pulse(PULSE_TRIG, PULSE_VOLTS, 1)
   end
 end
 
+-- logicalOutputs = {
+--   { ifInput(1) },
+--   {  ifNotInput(1), ifNotOutput(4) },
+--   {  ifMaxRepeat(1, 3) },
+--   { ifMaxRepeat(4, 3) }
+-- } -- change this :)
+
 logicalOutputs = {
-  { ifInput(1) },
-  {  ifNotInput(1), ifNotOutput(4) },
-  {  ifMaxRepeat(1, 3) },
-  { ifMaxRepeat(4, 3) }
-} -- change this :)
-
-
-init()
+  { ifStep(1, 4) },
+  { ifNotOutput(1) },
+  { ifStep(1, 4), ifInput(2) },
+  {
+    -- add your logic here 🏄‍♂️
+  },
+  {}
+}
